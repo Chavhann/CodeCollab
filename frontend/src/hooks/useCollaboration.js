@@ -74,6 +74,7 @@ export default function useCollaboration({
   const suppressChangesRef = useRef(false);
   const onRemoteContentRef = useRef(onRemoteContent);
   const clientIdRef = useRef(null);
+  const revisionRef = useRef(0);
 
   const [connectionStatus, setConnectionStatus] = useState("disconnected");
   const [connectionError, setConnectionError] = useState("");
@@ -126,6 +127,7 @@ export default function useCollaboration({
         const message = JSON.parse(event.data);
 
         if (message.type === "connected") {
+          revisionRef.current = message.revision || 0;
           suppressChangesRef.current = true;
           contentRef.current = message.content || "";
 
@@ -139,6 +141,7 @@ export default function useCollaboration({
         }
 
         if (message.type === "crdt") {
+          revisionRef.current = message.revision || revisionRef.current;
           suppressChangesRef.current = true;
           contentRef.current = message.content || "";
 
@@ -225,6 +228,7 @@ export default function useCollaboration({
 
           return;
         }
+
         if (message.type === "error") {
           setConnectionError(message.message || "Collaboration error.");
         }
@@ -275,6 +279,7 @@ export default function useCollaboration({
     },
     [],
   );
+
   const handleLocalChange = useCallback(
     (nextContent) => {
       const previousContent = contentRef.current;
@@ -308,7 +313,7 @@ export default function useCollaboration({
               length: change.deletedText.length,
               operation_id: createOperationId(),
               client_id: clientIdRef.current,
-              revision: 0,
+              revision: revisionRef.current,
             },
           }),
         );
@@ -325,7 +330,7 @@ export default function useCollaboration({
               length: 0,
               operation_id: createOperationId(),
               client_id: clientIdRef.current,
-              revision: 0,
+              revision: revisionRef.current,
             },
           }),
         );
@@ -342,6 +347,3 @@ export default function useCollaboration({
     handleCursorChange,
   };
 }
-
-
-

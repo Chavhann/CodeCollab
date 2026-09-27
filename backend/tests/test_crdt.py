@@ -1,4 +1,4 @@
-﻿from app.crdt import CRDTDocument
+from app.crdt import CRDTDocument
 
 
 def test_insert():
@@ -79,3 +79,79 @@ def test_snapshot():
 
     assert snapshot.content == "CodeCollab"
     assert snapshot.revision == 0
+
+def test_concurrent_inserts_at_same_position_are_deterministic():
+    document = CRDTDocument("Hello")
+
+    first = document.apply_insert(
+        position=5,
+        text="A",
+        operation_id="op-a",
+    )
+
+    second = document.apply_insert(
+        position=5,
+        text="B",
+        operation_id="op-b",
+    )
+
+    assert first.content == "HelloA"
+    assert second.content == "HelloAB"
+    assert second.revision == 2
+
+def test_inserts_at_different_positions_preserve_logical_locations():
+    document = CRDTDocument("Hello World")
+
+    first = document.apply_insert(
+        position=0,
+        text="X",
+        operation_id="op-a",
+        revision=0,
+    )
+
+    second = document.apply_insert(
+        position=6,
+        text="Y",
+        operation_id="op-b",
+        revision=0,
+    )
+
+    assert first.content == "XHello World"
+    assert second.content == "XHello YWorld"
+    assert second.revision == 2
+def test_concurrent_inserts_converge_regardless_of_arrival_order():
+    first_document = CRDTDocument("Hello")
+
+    first_document.apply_insert(
+        position=5,
+        text="A",
+        operation_id="op-a",
+        revision=0,
+    )
+
+    first_document.apply_insert(
+        position=5,
+        text="B",
+        operation_id="op-b",
+        revision=0,
+    )
+
+    second_document = CRDTDocument("Hello")
+
+    second_document.apply_insert(
+        position=5,
+        text="B",
+        operation_id="op-b",
+        revision=0,
+    )
+
+    second_document.apply_insert(
+        position=5,
+        text="A",
+        operation_id="op-a",
+        revision=0,
+    )
+
+    assert first_document.content == second_document.content
+    assert first_document.content == "HelloAB"
+

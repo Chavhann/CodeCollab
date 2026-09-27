@@ -1,4 +1,4 @@
-﻿from dataclasses import dataclass
+from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
@@ -12,12 +12,14 @@ class CRDTDocument:
         self.content = content
         self.revision = 0
         self.applied_operations: set[str] = set()
+        self.insert_operations: list[dict] = []
 
     def apply_insert(
         self,
         position: int,
         text: str,
         operation_id: str,
+        revision: int = 0,
     ) -> OperationResult:
         if operation_id in self.applied_operations:
             return OperationResult(
@@ -25,7 +27,19 @@ class CRDTDocument:
                 revision=self.revision,
             )
 
+        original_position = position
         position = max(0, min(position, len(self.content)))
+
+        if revision < self.revision:
+            for operation in self.insert_operations:
+                if operation["revision"] >= revision:
+                    if operation["original_position"] < original_position:
+                        position += len(operation["text"])
+                    elif (
+                        operation["original_position"] == original_position
+                        and operation["operation_id"] < operation_id
+                    ):
+                        position += len(operation["text"])
 
         self.content = (
             self.content[:position]
@@ -35,6 +49,15 @@ class CRDTDocument:
 
         self.revision += 1
         self.applied_operations.add(operation_id)
+        self.insert_operations.append(
+            {
+                "revision": revision,
+                "original_position": original_position,
+                "position": position,
+                "operation_id": operation_id,
+                "text": text,
+            }
+        )
 
         return OperationResult(
             content=self.content,
@@ -46,6 +69,7 @@ class CRDTDocument:
         position: int,
         length: int,
         operation_id: str,
+        revision: int = 0,
     ) -> OperationResult:
         if operation_id in self.applied_operations:
             return OperationResult(
@@ -85,6 +109,7 @@ class CRDTDocument:
                 position=operation.position,
                 text=operation.text,
                 operation_id=operation.operation_id,
+                revision=operation.revision,
             )
 
         if operation.type == "delete":
@@ -92,6 +117,7 @@ class CRDTDocument:
                 position=operation.position,
                 length=operation.length,
                 operation_id=operation.operation_id,
+                revision=operation.revision,
             )
 
         raise ValueError(
