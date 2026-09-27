@@ -541,6 +541,8 @@ function App() {
               onChange={handleEditorChange}
               onSave={handleSaveFile}
               saving={savingFile}
+              onCursorChange={collaboration.handleCursorChange}
+              presence={collaboration.presence}
             />
           ) : (
             <div className="auth-loading">
@@ -554,6 +556,8 @@ function App() {
 }
 
 export default App;
+
+
 
 
 

@@ -667,3 +667,58 @@ button {
   letter-spacing: 0.8px;
 }
 
+
+/* Live collaboration: remote cursors and selections */
+.remote-cursor-0 {
+  border-left: 2px solid #58a6ff;
+  margin-left: -1px;
+}
+
+.remote-cursor-1 {
+  border-left: 2px solid #f778ba;
+  margin-left: -1px;
+}
+
+.remote-cursor-2 {
+  border-left: 2px solid #3fb950;
+  margin-left: -1px;
+}
+
+.remote-cursor-3 {
+  border-left: 2px solid #d29922;
+  margin-left: -1px;
+}
+
+.remote-cursor-4 {
+  border-left: 2px solid #a371f7;
+  margin-left: -1px;
+}
+
+.remote-cursor-5 {
+  border-left: 2px solid #56d4dd;
+  margin-left: -1px;
+}
+
+.remote-selection-0 {
+  background: rgba(88, 166, 255, 0.20);
+}
+
+.remote-selection-1 {
+  background: rgba(247, 120, 186, 0.20);
+}
+
+.remote-selection-2 {
+  background: rgba(63, 185, 80, 0.20);
+}
+
+.remote-selection-3 {
+  background: rgba(210, 153, 34, 0.20);
+}
+
+.remote-selection-4 {
+  background: rgba(163, 113, 247, 0.20);
+}
+
+.remote-selection-5 {
+  background: rgba(86, 212, 221, 0.20);
+}

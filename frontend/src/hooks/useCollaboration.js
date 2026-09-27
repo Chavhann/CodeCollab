@@ -199,6 +199,32 @@ export default function useCollaboration({
           return;
         }
 
+        if (message.type === "cursor") {
+          setPresence((current) => {
+            const existing = current.filter(
+              (item) => item.user_id !== message.user_id,
+            );
+
+            const previous = current.find(
+              (item) => item.user_id === message.user_id,
+            );
+
+            return [
+              ...existing,
+              {
+                user_id: message.user_id,
+                username: message.username,
+                status: previous?.status || "online",
+                cursor: message.cursor,
+                selection_start: message.selection_start,
+                selection_end: message.selection_end,
+                metadata: previous?.metadata || {},
+              },
+            ];
+          });
+
+          return;
+        }
         if (message.type === "error") {
           setConnectionError(message.message || "Collaboration error.");
         }
@@ -227,6 +253,28 @@ export default function useCollaboration({
     };
   }, [projectId, fileId]);
 
+  const handleCursorChange = useCallback(
+    (cursorData) => {
+      const socket = socketRef.current;
+
+      if (!socket || socket.readyState !== WebSocket.OPEN) {
+        return;
+      }
+
+      socket.send(
+        JSON.stringify({
+          type: "cursor",
+          cursor: {
+            line: cursorData.line,
+            column: cursorData.column,
+          },
+          selection_start: cursorData.selectionStart || null,
+          selection_end: cursorData.selectionEnd || null,
+        }),
+      );
+    },
+    [],
+  );
   const handleLocalChange = useCallback(
     (nextContent) => {
       const previousContent = contentRef.current;
@@ -291,5 +339,9 @@ export default function useCollaboration({
     connectionError,
     presence,
     handleLocalChange,
+    handleCursorChange,
   };
 }
+
+
+
