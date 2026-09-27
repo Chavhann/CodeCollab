@@ -3,6 +3,7 @@ import Editor from "./components/Editor";
 import FileExplorer from "./components/FileExplorer";
 import Header from "./components/Header";
 import useCollaboration from "./hooks/useCollaboration";
+import useExplorerCollaboration from "./hooks/useExplorerCollaboration";
 import Login from "./components/auth/Login";
 import { getCurrentUser, logoutUser } from "./api/auth";
 import { createFile, listFiles, updateFile, deleteFile } from "./api/files";
@@ -312,6 +313,12 @@ function App() {
 
       setFiles((current) => [...current, formattedFile]);
       setActiveFileId(formattedFile.id);
+
+      explorerCollaboration.sendExplorerEvent(
+        "created",
+        file,
+        file.id,
+      );
     } catch (error) {
       setFileError(error.message || "Failed to create file");
     } finally {
@@ -369,6 +376,12 @@ function App() {
             : currentFile
         )
       );
+
+      explorerCollaboration.sendExplorerEvent(
+        "renamed",
+        updatedFile,
+        updatedFile.id,
+      );
     } catch (error) {
       setFileError(error.message || "Failed to rename file");
     }
@@ -388,6 +401,8 @@ function App() {
 
     try {
       console.log("Deleting file:", file.id, "from project:", selectedProjectId); await deleteFile(selectedProjectId, file.id); console.log("File deleted successfully:", file.id);
+
+      explorerCollaboration.sendExplorerEvent("deleted", null, file.id);
 
       setFiles((current) => {
         const remainingFiles = current.filter(
@@ -437,6 +452,7 @@ function App() {
             : file
         )
       );
+
     } catch (error) {
       setFileError(error.message || "Failed to save file");
     } finally {
@@ -467,6 +483,66 @@ function App() {
             : file
         )
       );
+    },
+  });
+
+  const explorerCollaboration = useExplorerCollaboration({
+    projectId: selectedProjectId,
+    onExplorerEvent: (message) => {
+      if (message.event === "created" && message.file) {
+        const remoteFile = {
+          id: message.file.id,
+          name: message.file.path.split("/").pop() || message.file.path,
+          path: message.file.path,
+          language: message.file.language || "plaintext",
+          content: message.file.content || "",
+          versionNumber: message.file.version_number,
+        };
+
+        setFiles((current) => {
+          if (current.some((file) => file.id === remoteFile.id)) {
+            return current;
+          }
+
+          return [...current, remoteFile];
+        });
+      }
+
+      if (message.event === "renamed" && message.file) {
+        setFiles((current) =>
+          current.map((file) =>
+            file.id === message.file.id
+              ? {
+                  ...file,
+                  name:
+                    message.file.path.split("/").pop() ||
+                    message.file.path,
+                  path: message.file.path,
+                  language: message.file.language || file.language,
+                  content: message.file.content || file.content,
+                  versionNumber:
+                    message.file.version_number ?? file.versionNumber,
+                }
+              : file,
+          ),
+        );
+      }
+
+      if (message.event === "deleted" && message.file_id) {
+        setFiles((current) => {
+          const remainingFiles = current.filter(
+            (file) => file.id !== message.file_id,
+          );
+
+          if (message.file_id === activeFileId) {
+            setActiveFileId(
+              remainingFiles.length > 0 ? remainingFiles[0].id : null,
+            );
+          }
+
+          return remainingFiles;
+        });
+      }
     },
   });
 
@@ -556,6 +632,13 @@ function App() {
 }
 
 export default App;
+
+
+
+
+
+
+
 
 
 

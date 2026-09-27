@@ -288,3 +288,94 @@ async def collaboration_websocket(
         )
 
 
+
+@router.websocket("/ws/projects/{project_id}")
+async def project_collaboration_websocket(
+    websocket: WebSocket,
+    project_id: int,
+):
+    room = f"project:{project_id}"
+    user = None
+
+    db = SessionLocal()
+
+    try:
+        user = authenticate_websocket(websocket, db)
+
+        if user is None:
+            await websocket.close(code=1008)
+            return
+
+        try:
+            project, _ = get_project_access(project_id, user, db)
+        except Exception:
+            await websocket.close(code=1008)
+            return
+
+        if project is None:
+            await websocket.close(code=1008)
+            return
+    finally:
+        db.close()
+
+    try:
+        await manager.connect(room, websocket)
+
+        await websocket.send_json(
+            {
+                "type": "connected",
+                "project_id": project_id,
+                "user_id": user.id,
+                "username": user.username,
+            }
+        )
+
+        await manager.broadcast(
+            room,
+            {
+                "type": "presence",
+                "event": "joined",
+                "project_id": project_id,
+                "user_id": user.id,
+                "username": user.username,
+                "connections": manager.room_size(room),
+            },
+            exclude=websocket,
+        )
+
+        while True:
+            raw_event = await websocket.receive_json()
+
+            if raw_event.get("type") == "explorer":
+                await manager.broadcast(
+                    room,
+                    {
+                        "type": "explorer",
+                        "event": raw_event.get("event"),
+                        "project_id": project_id,
+                        "user_id": user.id,
+                        "username": user.username,
+                        "file": raw_event.get("file"),
+                        "file_id": raw_event.get("file_id"),
+                    },
+                    exclude=websocket,
+                )
+
+    except WebSocketDisconnect:
+        pass
+
+    finally:
+        manager.disconnect(room, websocket)
+
+        if user is not None:
+            await manager.broadcast(
+                room,
+                {
+                    "type": "presence",
+                    "event": "left",
+                    "project_id": project_id,
+                    "user_id": user.id,
+                    "username": user.username,
+                    "connections": manager.room_size(room),
+                },
+            )
