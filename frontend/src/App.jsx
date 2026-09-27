@@ -1,7 +1,8 @@
-﻿import { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import Editor from "./components/Editor";
 import FileExplorer from "./components/FileExplorer";
 import Header from "./components/Header";
+import useCollaboration from "./hooks/useCollaboration";
 import Login from "./components/auth/Login";
 import { getCurrentUser, logoutUser } from "./api/auth";
 import { createFile, listFiles, updateFile, deleteFile } from "./api/files";
@@ -454,6 +455,21 @@ function App() {
   const activeFile =
     files.find((file) => file.id === activeFileId) ?? null;
 
+  const collaboration = useCollaboration({
+    projectId: selectedProjectId,
+    fileId: activeFileId,
+    initialContent: activeFile?.content || "",
+    onRemoteContent: (content) => {
+      setFiles((currentFiles) =>
+        currentFiles.map((file) =>
+          file.id === activeFileId
+            ? { ...file, content }
+            : file
+        )
+      );
+    },
+  });
+
   const handleFileSelect = (file) => {
     setActiveFileId(file.id);
   };
@@ -469,6 +485,8 @@ function App() {
           : file
       )
     );
+
+    collaboration.handleLocalChange(content);
   };
 
   const handleLogout = () => {
@@ -490,7 +508,7 @@ function App() {
 
   return (
     <div className="app-shell">
-      <Header user={user} onLogout={handleLogout} />
+      <Header user={user} onLogout={handleLogout} connectionStatus={collaboration.connectionStatus} presence={collaboration.presence} />
 
       <div className="workspace">
         <FileExplorer
@@ -500,6 +518,18 @@ function App() {
           onCreateFile={handleCreateFile}
           onDeleteFile={handleDeleteFile}
           onRenameFile={handleRenameFile}
+          workspaces={workspaces}
+          selectedWorkspaceId={selectedWorkspaceId}
+          onWorkspaceChange={handleWorkspaceChange}
+          onCreateWorkspace={handleCreateWorkspace}
+          workspaceLoading={workspaceLoading}
+          workspaceError={workspaceError}
+          projects={projects}
+          selectedProjectId={selectedProjectId}
+          onProjectChange={handleProjectChange}
+          onCreateProject={handleCreateProject}
+          projectLoading={projectLoading}
+          projectError={projectError}
         />
 
         <main className="editor-area">
@@ -519,316 +549,26 @@ function App() {
           )}
         </main>
       </div>
-
-      <div
-        style={{
-          position: "fixed",
-          right: "24px",
-          bottom: "24px",
-          width: "340px",
-          padding: "20px",
-          background: "#161b22",
-          border: "1px solid #30363d",
-          borderRadius: "10px",
-          boxShadow: "0 12px 30px rgba(0, 0, 0, 0.35)",
-          zIndex: 20,
-          maxHeight: "70vh",
-          overflowY: "auto",
-        }}
-      >
-        <div
-          style={{
-            fontSize: "12px",
-            fontWeight: "700",
-            color: "#8b949e",
-            marginBottom: "8px",
-            letterSpacing: "0.5px",
-          }}
-        >
-          WORKSPACE
-        </div>
-
-        {workspaceLoading ? (
-          <div style={{ color: "#8b949e", fontSize: "14px" }}>
-            Loading workspaces...
-          </div>
-        ) : workspaces.length > 0 ? (
-          <select
-            value={selectedWorkspaceId ?? ""}
-            onChange={handleWorkspaceChange}
-            style={{
-              width: "100%",
-              padding: "10px",
-              marginBottom: "16px",
-              background: "#0d1117",
-              color: "#e6edf3",
-              border: "1px solid #30363d",
-              borderRadius: "6px",
-            }}
-          >
-            {workspaces.map((workspace) => (
-              <option key={workspace.id} value={workspace.id}>
-                {workspace.name}
-              </option>
-            ))}
-          </select>
-        ) : (
-          <div
-            style={{
-              color: "#8b949e",
-              fontSize: "13px",
-              marginBottom: "14px",
-            }}
-          >
-            No workspaces yet. Create your first workspace.
-          </div>
-        )}
-
-        <form onSubmit={handleCreateWorkspace}>
-          <input
-            type="text"
-            placeholder="Workspace name"
-            value={workspaceName}
-            onChange={(event) => setWorkspaceName(event.target.value)}
-            minLength={2}
-            maxLength={100}
-            style={{
-              width: "100%",
-              boxSizing: "border-box",
-              padding: "10px",
-              marginBottom: "8px",
-              background: "#0d1117",
-              color: "#e6edf3",
-              border: "1px solid #30363d",
-              borderRadius: "6px",
-            }}
-          />
-
-          <input
-            type="text"
-            placeholder="Description (optional)"
-            value={workspaceDescription}
-            onChange={(event) => setWorkspaceDescription(event.target.value)}
-            maxLength={1000}
-            style={{
-              width: "100%",
-              boxSizing: "border-box",
-              padding: "10px",
-              marginBottom: "10px",
-              background: "#0d1117",
-              color: "#e6edf3",
-              border: "1px solid #30363d",
-              borderRadius: "6px",
-            }}
-          />
-
-          <button
-            type="submit"
-            disabled={creatingWorkspace}
-            style={{
-              width: "100%",
-              padding: "10px",
-              border: "none",
-              borderRadius: "6px",
-              background: "#238636",
-              color: "#ffffff",
-              fontWeight: "600",
-              cursor: creatingWorkspace ? "wait" : "pointer",
-              opacity: creatingWorkspace ? 0.7 : 1,
-            }}
-          >
-            {creatingWorkspace ? "Creating..." : "Create Workspace"}
-          </button>
-        </form>
-
-        {workspaceError && (
-          <div
-            style={{
-              marginTop: "10px",
-              color: "#f85149",
-              fontSize: "12px",
-            }}
-          >
-            {workspaceError}
-          </div>
-        )}
-
-        <div
-          style={{
-            height: "1px",
-            background: "#30363d",
-            margin: "18px 0",
-          }}
-        />
-
-        <div
-          style={{
-            fontSize: "12px",
-            fontWeight: "700",
-            color: "#8b949e",
-            marginBottom: "8px",
-            letterSpacing: "0.5px",
-          }}
-        >
-          PROJECT
-        </div>
-
-        {projectLoading ? (
-          <div
-            style={{
-              color: "#8b949e",
-              fontSize: "14px",
-              marginBottom: "12px",
-            }}
-          >
-            Loading projects...
-          </div>
-        ) : projects.length > 0 ? (
-          <select
-            value={selectedProjectId ?? ""}
-            onChange={handleProjectChange}
-            style={{
-              width: "100%",
-              padding: "10px",
-              marginBottom: "12px",
-              background: "#0d1117",
-              color: "#e6edf3",
-              border: "1px solid #30363d",
-              borderRadius: "6px",
-            }}
-          >
-            {projects.map((project) => (
-              <option key={project.id} value={project.id}>
-                {project.name}
-              </option>
-            ))}
-          </select>
-        ) : (
-          <div
-            style={{
-              color: "#8b949e",
-              fontSize: "13px",
-              marginBottom: "12px",
-            }}
-          >
-            No projects yet. Create your first project.
-          </div>
-        )}
-
-        <form onSubmit={handleCreateProject}>
-          <input
-            type="text"
-            placeholder="Project name"
-            value={projectName}
-            onChange={(event) => setProjectName(event.target.value)}
-            minLength={2}
-            maxLength={100}
-            style={{
-              width: "100%",
-              boxSizing: "border-box",
-              padding: "10px",
-              marginBottom: "8px",
-              background: "#0d1117",
-              color: "#e6edf3",
-              border: "1px solid #30363d",
-              borderRadius: "6px",
-            }}
-          />
-
-          <input
-            type="text"
-            placeholder="Description (optional)"
-            value={projectDescription}
-            onChange={(event) => setProjectDescription(event.target.value)}
-            maxLength={1000}
-            style={{
-              width: "100%",
-              boxSizing: "border-box",
-              padding: "10px",
-              marginBottom: "10px",
-              background: "#0d1117",
-              color: "#e6edf3",
-              border: "1px solid #30363d",
-              borderRadius: "6px",
-            }}
-          />
-
-          <button
-            type="submit"
-            disabled={creatingProject || !selectedWorkspaceId}
-            style={{
-              width: "100%",
-              padding: "10px",
-              border: "none",
-              borderRadius: "6px",
-              background: "#1f6feb",
-              color: "#ffffff",
-              fontWeight: "600",
-              cursor:
-                creatingProject || !selectedWorkspaceId
-                  ? "wait"
-                  : "pointer",
-              opacity:
-                creatingProject || !selectedWorkspaceId ? 0.7 : 1,
-            }}
-          >
-            {creatingProject ? "Creating..." : "Create Project"}
-          </button>
-        </form>
-
-        {projectError && (
-          <div
-            style={{
-              marginTop: "10px",
-              color: "#f85149",
-              fontSize: "12px",
-            }}
-          >
-            {projectError}
-          </div>
-        )}
-
-        {fileError && (
-          <div
-            style={{
-              marginTop: "10px",
-              color: "#f85149",
-              fontSize: "12px",
-            }}
-          >
-            {fileError}
-          </div>
-        )}
-
-        {creatingFile && (
-          <div
-            style={{
-              marginTop: "10px",
-              color: "#8b949e",
-              fontSize: "12px",
-            }}
-          >
-            Creating file...
-          </div>
-        )}
-
-        {savingFile && (
-          <div
-            style={{
-              marginTop: "10px",
-              color: "#8b949e",
-              fontSize: "12px",
-            }}
-          >
-            Saving file...
-          </div>
-        )}
-      </div>
     </div>
   );
 }
 
 export default App;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

@@ -1,4 +1,4 @@
-﻿function Header({ user, onLogout }) {
+function Header({ user, onLogout, connectionStatus = "disconnected", presence = [] }) {
   return (
     <header className="app-header">
       <div className="brand">
@@ -7,9 +7,29 @@
       </div>
 
       <div className="header-right">
-        <span className="connection-status">
+        <div className="collaborators">
+          <span className="collaborators-label">
+            Collaborators {presence.length > 0 ? `(${presence.length})` : ""}
+          </span>
+          {presence.length > 0 && (
+            <div className="collaborator-list">
+              {presence.map((collaborator) => (
+                <span className="collaborator" key={collaborator.user_id}>
+                  <span className="collaborator-dot"></span>
+                  {collaborator.username}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <span className={`connection-status connection-${connectionStatus}`}>
           <span className="status-dot"></span>
-          Connected
+          {connectionStatus === "connected"
+            ? "Connected"
+            : connectionStatus === "connecting"
+              ? "Connecting..."
+              : "Disconnected"}
         </span>
 
         <span className="user-name">
@@ -29,3 +49,7 @@
 }
 
 export default Header;
+
+
+
+
